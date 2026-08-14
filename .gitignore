@@ -1,0 +1,8 @@
+.env
+__pycache__/
+*.pyc
+audio_app/local.db
+audio_app/uploads/*
+!audio_app/uploads/.gitkeep
+pipeline/merged_preview.json
+.DS_Store
