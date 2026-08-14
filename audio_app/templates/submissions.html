@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Submissions — ConsultBae</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
+  table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 0.85rem; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #eee; vertical-align: middle; }
+  th { background: #fafafa; }
+  audio { width: 200px; height: 32px; }
+  .badge { padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 600; }
+  .clean { background: #d4edda; color: #155724; }
+  .moderate_noise { background: #fff3cd; color: #856404; }
+  .noisy { background: #f8d7da; color: #721c24; }
+  a.nav { display: inline-block; margin-top: 4px; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+  <h1>📋 All audio submissions</h1>
+  <a class="nav" href="/">← Back to submission form</a>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th><th>Phone</th><th>Audio</th><th>Duration</th>
+        <th>Sample rate</th><th>Bitrate</th><th>Loudness</th><th>Noise</th><th>Submitted</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td>{{ r.submitted_name }}</td>
+        <td>{{ r.submitted_phone }}</td>
+        <td>
+          {% if r.status == 'processed' %}
+          <audio controls src="/uploads/{{ r.file_path.split('/')[-1] }}"></audio>
+          {% else %}
+          <em>failed to process</em>
+          {% endif %}
+        </td>
+        <td>{{ '%.1f'|format(r.duration_seconds) if r.duration_seconds else '—' }}s</td>
+        <td>{{ (r.sample_rate_hz / 1000)|round(1) if r.sample_rate_hz else '—' }} kHz</td>
+        <td>{{ r.bitrate_kbps if r.bitrate_kbps else '—' }} kbps</td>
+        <td>{{ r.loudness_db if r.loudness_db else '—' }} dB</td>
+        <td>{% if r.noise_estimate %}<span class="badge {{ r.noise_estimate }}">{{ r.noise_estimate.replace('_',' ') }}</span>{% else %}—{% endif %}</td>
+        <td>{{ r.created_at[:16] if r.created_at else '' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9">No submissions yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>
