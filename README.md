@@ -15,12 +15,13 @@ Everything below is meant to be actually runnable, not just described.
 ```
 data/                          the 3 real source CSVs
 supabase/migrations/0001_init.sql   schema (Task 1)
+supabase/migrations/0002_audio_app_rls.sql   RLS + storage bucket for the React audio app
 pipeline/merge.py              ingests all 3 CSVs, dedupes people (Task 1)
 n8n/skill_tagging_workflow.json     Groq-powered auto-tagging flow (Task 2)
-audio_app/                     Flask app: record/upload -> analyze -> store (Task 3)
+audio_app/                     React (Vite) app: record/upload -> analyze in-browser -> store (Task 3)
 docs/data_issues_report.md     Task 4
 docs/stretch_scaling.md        Task 5
-docs/STUCK_LOG.md              the 3 hardest problems + how they got solved
+docs/STUCK_LOG.md              the hardest problems + how they got solved
 ```
 
 ## 1. Set up Supabase
@@ -56,30 +57,37 @@ trigger.
 
 ## 4. Run the audio app (Task 3)
 
+Pure React (Vite), no backend server — see `audio_app/README.md` for the
+full picture.
+
 ```bash
 cd audio_app
-pip install -r requirements.txt      # needs ffmpeg on PATH — apt install ffmpeg / brew install ffmpeg
-python app.py
+npm install
+npm run dev
 ```
 
 Open http://localhost:5050. No Supabase setup required to try it locally —
-if `SUPABASE_URL`/`SUPABASE_SERVICE_KEY` aren't set, it falls back to a
-local `local.db` SQLite file automatically, so `python app.py` just works.
-Set those two env vars (same `.env` as the pipeline) to have it write into
-the real Supabase `audio_submissions` table instead, linked to `people` by
-phone number.
+if `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` aren't set in `audio_app/.env`,
+it falls back to browser IndexedDB automatically, so `npm run dev` just
+works. Set those two (Project Settings → API → anon/public key, **not** the
+service role key) to have it write into the real Supabase
+`audio_submissions`/`people` tables instead — you'll also need to run
+`supabase/migrations/0002_audio_app_rls.sql`, which opens up Row Level
+Security for exactly what this client-only app needs to touch.
 
 Record in-browser or upload a file → submit → see it appear at
 `/submissions` with duration, sample rate, bitrate, loudness, and a rough
-noise estimate, plus a play button.
+noise estimate (all computed client-side via the Web Audio API — no ffmpeg),
+plus a play button.
 
 ## Deploying the audio app for the video (pick one)
-- **ngrok** (fastest): `ngrok http 5050` while `python app.py` is running locally.
-- **Render free tier**: connect the repo, set build command
-  `pip install -r audio_app/requirements.txt`, start command
-  `cd audio_app && gunicorn app:app`, add `SUPABASE_URL`/`SUPABASE_SERVICE_KEY`
-  as environment variables. (Add `gunicorn` to `audio_app/requirements.txt`
-  first — it's not there by default since local dev doesn't need it.)
+- **ngrok** (fastest): `npm run build && npm run preview -- --host`, then
+  `ngrok http 5050` in another terminal.
+- **Vercel / Netlify / Render (static site)**: connect the repo, set the
+  project root to `audio_app`, build command `npm run build`, output
+  directory `dist`, and add `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` as
+  environment variables (Vite bakes them in at build time, so they need to
+  be set *before* the build runs, not just at request time).
 
 ## Design decisions worth knowing about
 - **Matching strategy**: exact email/phone = auto-merge (confidence 1.0).
@@ -89,10 +97,14 @@ noise estimate, plus a play button.
   Full reasoning + the specific case that forced the cluster-wide conflict
   check (`"Arjun Mehta"`) is in `docs/STUCK_LOG.md` and
   `docs/data_issues_report.md`.
-- **Audio storage/DB**: `audio_app/db.py` uses Supabase if configured,
-  otherwise a local SQLite fallback — so the grader can run it with zero
-  cloud setup, and it's a 2-line env var change to point it at the real
-  `people`/`audio_submissions` schema from Task 1.
+- **Audio storage/DB**: `audio_app/src/lib/storage.js` uses Supabase (anon
+  key + RLS) if configured, otherwise a local IndexedDB fallback — so the
+  grader can run it with zero cloud setup, and it's a 2-line env var change
+  to point it at the real `people`/`audio_submissions` schema from Task 1.
+- **No backend for Task 3**: audio decoding/analysis happens client-side via
+  the Web Audio API (`AudioContext.decodeAudioData`), which is why Flask and
+  ffmpeg could come out entirely — see `audio_app/README.md` for the "why"
+  and `docs/STUCK_LOG.md` for how the swap went.
 - **n8n flow chosen**: LLM skill-tagging over duplicate-alert, since Task 1
   already builds real de-duplication with an audit trail — see
   `n8n/README.md` for the reasoning.

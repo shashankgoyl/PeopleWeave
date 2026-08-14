@@ -101,7 +101,47 @@ noise floor to compare against.
 re-ran the same heuristic against a clean-background version and a
 noisy-background version of that. That gave the expected split (`"clean"`
 vs `"noisy"`) — see the two test cases in the build (search this
-conversation for `test_clean_speech.wav` / `test_noisy_speech.wav`). Worth
-being upfront about: this is a rough heuristic, not a validated audio
-quality metric — the docstring in `audio_app/analyze.py` says as much rather
-than overselling what a few lines of percentile math actually proves.
+conversation for `test_clean_speech.wav` / `test_noisy_speech.wav`, or run
+`node audio_app/src/lib/audioAnalysis.test.mjs` for the JS port of the same
+test, added after the Flask→React migration below). Worth being upfront
+about: this is a rough heuristic, not a validated audio quality metric — the
+comment above `analyzeAudioBlob` in `audio_app/src/lib/audioAnalysis.js`
+says as much rather than overselling what a few lines of percentile math
+actually proves.
+
+## 4. Dropping Flask entirely for the audio app
+
+The original Task 3 was Flask + pydub (which shells out to ffmpeg) doing the
+audio decoding server-side. When asked to move to React and drop Flask if it
+could genuinely be dropped rather than kept around for its own sake, the
+real question was: does audio *analysis* need a server at all?
+
+**What I checked:** whether the browser's own `AudioContext.decodeAudioData`
+exposes enough to replace what pydub was doing — it does. `AudioBuffer` gives
+you `.duration` and `.sampleRate` directly off the decode, and you already
+have the file's byte size client-side for the bitrate estimate, so the RMS
+loudness and windowed-SNR noise heuristic are just arithmetic over
+`getChannelData()` — no different from what the Python version was doing
+over a NumPy-ish array, just in JS.
+
+**What that meant for storage:** with no backend, something still has to
+enforce who can write what to Supabase. The service_role key from the Flask
+version can never go into browser JS (it bypasses every permission check),
+so the swap meant switching to the anon key **and** actually turning on Row
+Level Security with explicit policies (`supabase/migrations/0002_audio_app_rls.sql`)
+— previously RLS was left off on purpose since only a trusted server touched
+the DB. That's a real trade-off, not a free win: an open-anon-insert policy
+is right for a public no-login submission form, but it also means anyone
+with the anon key can read every row in `audio_submissions`, including phone
+numbers. Documented in `docs/stretch_scaling.md` rather than solved here,
+since fixing it properly (e.g. an edge function, or scoping SELECT somehow)
+is more than this assignment's scope needs.
+
+**What I rejected:** keeping a thin Flask/Node API purely as a proxy to
+Supabase (so the service_role key stays server-side) was the "safer" middle
+ground, and I considered it. Went with the fully client-only version instead
+because the person specifically asked whether Flask could be replaced
+outright "if that works fine" — and for this assignment's threat model
+(a demo take-home, not a real production intake system with sensitive data),
+it does. That trade-off is written down here and in the RLS migration's
+comments rather than silently made.
