@@ -50,7 +50,7 @@ audio app).
 
 ```bash
 cd pipeline
-python3 -m venv .venv
+python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 cp .env.example .env             # then fill in SUPABASE_URL / SUPABASE_SERVICE_KEY

@@ -55,37 +55,61 @@ export default function SubmitPage() {
 
   return (
     <div className="page submit-page">
-      <h1>🎙️ Submit a voice recording</h1>
+      <div className="card">
+        <h1>
+          <span className="heading-icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="1" y="7" width="2" height="6" rx="1" fill="currentColor" />
+              <rect x="5" y="3" width="2" height="14" rx="1" fill="currentColor" />
+              <rect x="9" y="0" width="2" height="20" rx="1" fill="currentColor" />
+              <rect x="13" y="4" width="2" height="12" rx="1" fill="currentColor" />
+              <rect x="17" y="8" width="2" height="4" rx="1" fill="currentColor" />
+            </svg>
+          </span>
+          Submit a voice recording
+        </h1>
 
-      {status && <div className={`flash ${status.type}`}>{status.text}</div>}
+        {status && <div className={`flash ${status.type}`}>{status.text}</div>}
 
-      <form onSubmit={handleSubmit}>
-        <label htmlFor="name">Full name</label>
-        <input
-          id="name"
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Your name"
-          required
-        />
+        <form onSubmit={handleSubmit}>
+          <div className="form-grid">
+            <div className="field">
+              <label htmlFor="name">Full name</label>
+              <input
+                id="name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Your name"
+                required
+              />
+            </div>
 
-        <label htmlFor="phone">Phone number</label>
-        <input
-          id="phone"
-          type="tel"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder="9876543210"
-          required
-        />
+            <div className="field">
+              <label htmlFor="phone">Phone number</label>
+              <input
+                id="phone"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="9876543210"
+                required
+              />
+            </div>
+          </div>
 
-        <Recorder onAudioReady={handleAudioReady} />
+          <Recorder onAudioReady={handleAudioReady} />
 
-        <button type="submit" className="submit-btn" disabled={submitting}>
-          {submitting ? "Analyzing & submitting…" : "Submit recording"}
-        </button>
-      </form>
+          <button type="submit" className="submit-btn" disabled={submitting}>
+            {submitting ? "Analyzing & submitting…" : (
+              <>
+                Submit recording
+                <span aria-hidden="true">→</span>
+              </>
+            )}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
