@@ -24,19 +24,38 @@ docs/stretch_scaling.md        Task 5
 docs/STUCK_LOG.md              the hardest problems + how they got solved
 ```
 
+## Environment variables — where each one goes
+
+There are **two separate `.env` files** in this repo, in two different
+folders, for two different runtimes. Neither lives at the repo root — copy
+each `.env.example` from *inside* the folder it belongs to:
+
+| File | Lives in | Read by | Contains |
+|---|---|---|---|
+| `pipeline/.env` | `pipeline/` | `merge.py`, via `load_dotenv()` (looks in the current working directory) | `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` (service role — server-side only, never in a browser) |
+| `audio_app/.env` | `audio_app/` | Vite, at build/dev time (only vars prefixed `VITE_` are exposed to the browser) | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (anon key — safe client-side) |
+
+`GROQ_API_KEY` isn't a file at all — it's set as an **n8n environment
+variable** (Settings → Variables in the n8n UI, or exported in your shell
+before `npx n8n`), since n8n is the only thing that calls Groq. See
+`n8n/README.md`.
+
 ## 1. Set up Supabase
 
-Follow `supabase/README.md` — create a project, run the migration, grab your
-`SUPABASE_URL` and `service_role` key.
+Follow `supabase/README.md` — create a project, run both migrations, grab
+your `service_role` key (for the pipeline) and `anon`/`public` key (for the
+audio app).
 
 ## 2. Run the merge pipeline (Task 1)
 
 ```bash
 cd pipeline
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-cp ../.env.example .env        # fill in SUPABASE_URL / SUPABASE_SERVICE_KEY
-python merge.py --dry-run      # sanity check: builds merged_preview.json, no DB writes
-python merge.py                # actually upserts into Supabase
+cp .env.example .env             # then fill in SUPABASE_URL / SUPABASE_SERVICE_KEY
+python merge.py --dry-run        # sanity check: builds merged_preview.json, no DB writes
+python merge.py                  # actually upserts into Supabase
 ```
 
 `--dry-run` is worth running first — it prints a summary (raw rows read,
@@ -48,21 +67,24 @@ your database. Against the 3 files in `data/`, this currently resolves
 47 duplicate rows collapsed, 3 ambiguous pairs flagged for human review
 instead of guessed). Full breakdown in `docs/data_issues_report.md`.
 
+When you're done, `deactivate` exits the virtual environment.
+
 ## 3. Import the n8n automation (Task 2)
 
 Get a free Groq API key at https://console.groq.com/keys, then follow
 `n8n/README.md` — import `n8n/skill_tagging_workflow.json`, set 3 env vars
-(`SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `GROQ_API_KEY`), click the manual
-trigger.
+in n8n itself (`SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `GROQ_API_KEY`),
+click the manual trigger.
 
 ## 4. Run the audio app (Task 3)
 
-Pure React (Vite), no backend server — see `audio_app/README.md` for the
-full picture.
+Pure React (Vite), no backend server, no Python venv needed — see
+`audio_app/README.md` for the full picture.
 
 ```bash
 cd audio_app
 npm install
+cp .env.example .env             # optional - see below
 npm run dev
 ```
 

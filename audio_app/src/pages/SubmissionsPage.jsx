@@ -18,12 +18,13 @@ export default function SubmissionsPage() {
 
   return (
     <div className="page submissions-page">
-      <h1>📋 All audio submissions</h1>
+      <div className="card">
+        <h1>📋 All audio submissions</h1>
 
-      {error && <div className="flash error">Couldn't load submissions: {error}</div>}
-      {!rows && !error && <p>Loading…</p>}
+        {error && <div className="flash error">Couldn't load submissions: {error}</div>}
+        {!rows && !error && <p>Loading…</p>}
 
-      {rows && (
+        {rows && (
         <table>
           <thead>
             <tr>
@@ -67,7 +68,8 @@ export default function SubmissionsPage() {
             ))}
           </tbody>
         </table>
-      )}
+        )}
+      </div>
     </div>
   );
 }

@@ -1,8 +1,9 @@
+# .env is a bare pattern (no leading slash), so it matches at any depth -
+# this covers both pipeline/.env and audio_app/.env (audio_app/ also has
+# its own .gitignore as a second guard since it's the more sensitive one).
 .env
+.venv/
 __pycache__/
 *.pyc
-audio_app/local.db
-audio_app/uploads/*
-!audio_app/uploads/.gitkeep
 pipeline/merged_preview.json
 .DS_Store
