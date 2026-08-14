@@ -1,0 +1,157 @@
+{
+  "name": "ConsultBae - Auto-tag skill category (Groq LLM)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger (run on demand)",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-200, 300]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "hours", "hoursInterval": 6 }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every 6 hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [-200, 460]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/people?skill_category=is.null&select=id,full_name,primary_email",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{$env.SUPABASE_SERVICE_KEY}}" },
+            { "name": "Authorization", "value": "=Bearer {{$env.SUPABASE_SERVICE_KEY}}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-untagged",
+      "name": "Fetch people with no skill_category",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [40, 380]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/person_sources?person_id=eq.{{$json.id}}&select=raw_skills_text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{$env.SUPABASE_SERVICE_KEY}}" },
+            { "name": "Authorization", "value": "=Bearer {{$env.SUPABASE_SERVICE_KEY}}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-raw-skills",
+      "name": "Fetch their raw skills text",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [280, 380]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine all raw_skills_text rows for this person into one blob for the prompt\nconst skillsTexts = items.map(i => i.json.raw_skills_text).filter(Boolean).join(' | ');\nreturn [{ json: { ...$('Fetch people with no skill_category').item.json, combined_skills_text: skillsTexts } }];"
+      },
+      "id": "combine-skills",
+      "name": "Combine skills text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 380]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{$env.GROQ_API_KEY}}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  model: \"llama-3.1-8b-instant\",\n  temperature: 0,\n  messages: [\n    { role: \"system\", content: \"You classify a person's professional skill set into exactly one of these categories: automation-heavy, web dev, data, sales-and-outreach, content-and-design, ops-and-admin, other. Respond with ONLY a compact JSON object like {\\\"category\\\": \\\"automation-heavy\\\", \\\"confidence\\\": 0.9}. No prose, no markdown.\" },\n    { role: \"user\", content: \"Skills/tools text: \" + $json.combined_skills_text }\n  ]\n}) }}",
+        "options": {}
+      },
+      "id": "groq-classify",
+      "name": "Groq - classify skill category",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [760, 380]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $json.choices[0].message.content;\nlet parsed;\ntry {\n  parsed = JSON.parse(raw);\n} catch (e) {\n  parsed = { category: 'other', confidence: 0 };\n}\nreturn [{ json: {\n  person_id: $('Combine skills text').item.json.id,\n  skill_category: parsed.category,\n  skill_confidence: parsed.confidence\n} }];"
+      },
+      "id": "parse-groq-response",
+      "name": "Parse Groq JSON response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, 380]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/people?id=eq.{{$json.person_id}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{$env.SUPABASE_SERVICE_KEY}}" },
+            { "name": "Authorization", "value": "=Bearer {{$env.SUPABASE_SERVICE_KEY}}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ skill_category: $json.skill_category, skill_confidence: $json.skill_confidence }) }}",
+        "options": {}
+      },
+      "id": "write-back",
+      "name": "Write skill_category back to Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1240, 380]
+    }
+  ],
+  "connections": {
+    "Manual Trigger (run on demand)": {
+      "main": [[{ "node": "Fetch people with no skill_category", "type": "main", "index": 0 }]]
+    },
+    "Every 6 hours": {
+      "main": [[{ "node": "Fetch people with no skill_category", "type": "main", "index": 0 }]]
+    },
+    "Fetch people with no skill_category": {
+      "main": [[{ "node": "Fetch their raw skills text", "type": "main", "index": 0 }]]
+    },
+    "Fetch their raw skills text": {
+      "main": [[{ "node": "Combine skills text", "type": "main", "index": 0 }]]
+    },
+    "Combine skills text": {
+      "main": [[{ "node": "Groq - classify skill category", "type": "main", "index": 0 }]]
+    },
+    "Groq - classify skill category": {
+      "main": [[{ "node": "Parse Groq JSON response", "type": "main", "index": 0 }]]
+    },
+    "Parse Groq JSON response": {
+      "main": [[{ "node": "Write skill_category back to Supabase", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}
