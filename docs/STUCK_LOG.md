@@ -3,7 +3,7 @@
 **A note on how this was built, up front:** this project was built with heavy
 AI assistance (Claude, in an agentic coding session) — the merge algorithm,
 the schema, the Flask app, and the n8n export were all written and iterated
-on with an AI doing the typing. Given that ConsultBae's own stuck-log prompt
+on with an AI doing the typing. Given that this assignment's own stuck-log prompt
 explicitly asks "what you asked AI, what suggestions you rejected and why,"
 that seems like expected/normal practice here, not something to hide. What
 follows is a genuine account of the hardest technical calls made *during

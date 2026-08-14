@@ -1,8 +1,14 @@
-# ConsultBae take-home — unified people DB + automation + audio app
+# PeopleWeave
 
-Built with heavy AI assistance (see `docs/STUCK_LOG.md` for specifics on
-where and how). Everything below is meant to be actually runnable, not just
-described.
+Merges 3 messy, overlapping data sources (a recruitment feed, a gig-worker
+platform, and a CRM export — none of them sharing a common ID) into one
+clean people database, with an LLM-powered skill-tagging automation on top
+and a small audio-intake app that writes back into the same database.
+
+Originally built as a take-home assignment; kept here as a working sample of
+identity-resolution + automation + full-stack work. Built with heavy AI
+assistance (see `docs/STUCK_LOG.md` for specifics on where and how).
+Everything below is meant to be actually runnable, not just described.
 
 ## What's in here
 
