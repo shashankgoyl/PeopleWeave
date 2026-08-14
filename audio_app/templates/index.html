@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PeopleWeave — Audio Submission</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; max-width: 480px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
+  h1 { font-size: 1.4rem; }
+  label { display: block; margin-top: 16px; font-weight: 600; font-size: 0.9rem; }
+  input[type=text], input[type=tel] { width: 100%; padding: 10px; margin-top: 6px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; font-size: 1rem; }
+  .rec-controls { margin-top: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  button, .btn { background: #111; color: #fff; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-size: 0.95rem; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  #recIndicator { color: #c0392b; font-weight: 600; display: none; }
+  audio { width: 100%; margin-top: 10px; }
+  .flash { background: #fff3cd; border: 1px solid #ffe08a; padding: 10px; border-radius: 6px; margin-bottom: 12px; }
+  .submitBtn { margin-top: 24px; width: 100%; padding: 12px; font-size: 1.05rem; }
+  .divider { text-align: center; color: #999; margin: 14px 0; font-size: 0.85rem; }
+  a.nav { display: inline-block; margin-top: 20px; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+  <h1>🎙️ Submit a voice recording</h1>
+
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      {% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <form id="submitForm" action="/submit" method="post" enctype="multipart/form-data">
+    <label for="name">Full name</label>
+    <input type="text" id="name" name="name" required placeholder="Your name">
+
+    <label for="phone">Phone number</label>
+    <input type="tel" id="phone" name="phone" required placeholder="9876543210">
+
+    <label>Record audio in the browser</label>
+    <div class="rec-controls">
+      <button type="button" id="startBtn">● Start recording</button>
+      <button type="button" id="stopBtn" disabled>■ Stop</button>
+      <span id="recIndicator">● REC</span>
+    </div>
+    <audio id="preview" controls style="display:none;"></audio>
+
+    <div class="divider">— or —</div>
+
+    <label for="fileUpload">Upload an audio file instead</label>
+    <input type="file" id="fileUpload" name="audio" accept="audio/*">
+
+    <button type="submit" class="submitBtn">Submit recording</button>
+  </form>
+
+  <a class="nav" href="/submissions">→ View all submissions</a>
+
+<script>
+let mediaRecorder, chunks = [], recordedBlob = null;
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const indicator = document.getElementById('recIndicator');
+const preview = document.getElementById('preview');
+const fileInput = document.getElementById('fileUpload');
+const form = document.getElementById('submitForm');
+
+startBtn.onclick = async () => {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  chunks = [];
+  mediaRecorder = new MediaRecorder(stream);
+  mediaRecorder.ondataavailable = e => chunks.push(e.data);
+  mediaRecorder.onstop = () => {
+    recordedBlob = new Blob(chunks, { type: 'audio/webm' });
+    preview.src = URL.createObjectURL(recordedBlob);
+    preview.style.display = 'block';
+    fileInput.value = ''; // recording takes priority over a stale file selection
+  };
+  mediaRecorder.start();
+  startBtn.disabled = true;
+  stopBtn.disabled = false;
+  indicator.style.display = 'inline';
+};
+
+stopBtn.onclick = () => {
+  mediaRecorder.stop();
+  mediaRecorder.stream.getTracks().forEach(t => t.stop());
+  startBtn.disabled = false;
+  stopBtn.disabled = true;
+  indicator.style.display = 'none';
+};
+
+fileInput.onchange = () => {
+  if (fileInput.files.length) {
+    recordedBlob = null; // an uploaded file takes priority over any old recording
+    preview.style.display = 'none';
+  }
+};
+
+form.onsubmit = (e) => {
+  if (recordedBlob && !fileInput.files.length) {
+    e.preventDefault();
+    const dt = new DataTransfer();
+    const file = new File([recordedBlob], 'recording.webm', { type: 'audio/webm' });
+    dt.items.add(file);
+    fileInput.files = dt.files;
+    form.submit();
+  }
+  // else: normal upload submission, or nothing chosen (server-side validation catches that)
+};
+</script>
+</body>
+</html>
